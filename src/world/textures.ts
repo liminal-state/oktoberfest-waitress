@@ -231,30 +231,225 @@ export function skinTexture(): THREE.CanvasTexture {
   return finish(c);
 }
 
-export function faceTexture(): THREE.CanvasTexture {
-  // crude painted-on face, very Postal 2 NPC
-  const [c, ctx] = makeCanvas(64);
-  ctx.fillStyle = '#e8b48c';
-  ctx.fillRect(0, 0, 64, 64);
-  // eyes
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(18, 24, 10, 6);
-  ctx.fillRect(36, 24, 10, 6);
-  ctx.fillStyle = '#2a4a8a';
-  ctx.fillRect(21, 25, 4, 4);
-  ctx.fillRect(39, 25, 4, 4);
+export interface FaceOptions {
+  skin?: string;
+  eye?: string;
+  mustache?: boolean;
+  lipstick?: boolean;
+}
+
+export function faceTexture(o: FaceOptions = {}): THREE.CanvasTexture {
+  // painted face mapped onto the head sphere's front UV band
+  const skin = o.skin ?? '#e8b48c';
+  const [c, ctx] = makeCanvas(128);
+  ctx.fillStyle = skin;
+  ctx.fillRect(0, 0, 128, 128);
+  // soft facial shading: lighter center, warm shadow at jaw
+  let grad = ctx.createRadialGradient(64, 56, 8, 64, 60, 55);
+  grad.addColorStop(0, 'rgba(255,240,220,0.30)');
+  grad.addColorStop(0.7, 'rgba(255,240,220,0)');
+  grad.addColorStop(1, 'rgba(120,70,40,0.18)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 128, 128);
+  // eyes: whites, iris, pupil, highlight, lash line
+  for (const ex of [43, 85]) {
+    ctx.fillStyle = '#fdfdfa';
+    ctx.beginPath();
+    ctx.ellipse(ex, 52, 9.5, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = o.eye ?? '#3a6ab0';
+    ctx.beginPath();
+    ctx.arc(ex, 52.5, 4.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#101018';
+    ctx.beginPath();
+    ctx.arc(ex, 52.5, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.beginPath();
+    ctx.arc(ex + 1.6, 50.8, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+    // upper lash line
+    ctx.strokeStyle = '#4a2c14';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(ex, 51, 9.5, 6, 0, Math.PI * 1.15, Math.PI * 1.85);
+    ctx.stroke();
+  }
   // brows
-  ctx.fillStyle = '#7a4a1a';
-  ctx.fillRect(17, 20, 12, 2);
-  ctx.fillRect(35, 20, 12, 2);
+  ctx.strokeStyle = '#6a4318';
+  ctx.lineWidth = 3;
+  for (const ex of [43, 85]) {
+    ctx.beginPath();
+    ctx.moveTo(ex - 9, 42);
+    ctx.quadraticCurveTo(ex, 37.5, ex + 9, 41);
+    ctx.stroke();
+  }
+  // nose: subtle shadow + nostrils
+  ctx.strokeStyle = 'rgba(150,90,50,0.5)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(62, 56);
+  ctx.quadraticCurveTo(60, 66, 63, 70);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(120,70,40,0.55)';
+  ctx.beginPath();
+  ctx.ellipse(60, 71, 1.6, 1.1, 0, 0, Math.PI * 2);
+  ctx.ellipse(68, 71, 1.6, 1.1, 0, 0, Math.PI * 2);
+  ctx.fill();
   // mouth
-  ctx.fillStyle = '#b05050';
-  ctx.fillRect(26, 42, 12, 3);
+  if (o.mustache) {
+    ctx.fillStyle = '#5a3a1a';
+    ctx.beginPath();
+    ctx.ellipse(56, 79, 10, 4.5, 0.15, 0, Math.PI * 2);
+    ctx.ellipse(72, 79, 10, 4.5, -0.15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#9a5a4a';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(56, 88);
+    ctx.quadraticCurveTo(64, 92, 72, 88);
+    ctx.stroke();
+  } else {
+    // smiling lips
+    ctx.fillStyle = o.lipstick === false ? '#b06858' : '#c04848';
+    ctx.beginPath();
+    ctx.moveTo(52, 84);
+    ctx.quadraticCurveTo(64, 80, 76, 84);
+    ctx.quadraticCurveTo(64, 93, 52, 84);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(90,30,20,0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(52, 84);
+    ctx.quadraticCurveTo(64, 82, 76, 84);
+    ctx.stroke();
+  }
   // blush
-  ctx.fillStyle = 'rgba(220,120,100,0.4)';
-  ctx.fillRect(12, 34, 6, 4);
-  ctx.fillRect(46, 34, 6, 4);
+  grad = ctx.createRadialGradient(34, 68, 1, 34, 68, 9);
+  grad.addColorStop(0, 'rgba(230,120,100,0.45)');
+  grad.addColorStop(1, 'rgba(230,120,100,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(24, 58, 20, 20);
+  grad = ctx.createRadialGradient(94, 68, 1, 94, 68, 9);
+  grad.addColorStop(0, 'rgba(230,120,100,0.45)');
+  grad.addColorStop(1, 'rgba(230,120,100,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(84, 58, 20, 20);
   return finish(c);
+}
+
+export function bodiceTexture(): THREE.CanvasTexture {
+  // deep-blue dirndl bodice with golden front lacing and trim
+  const [c, ctx] = makeCanvas(128);
+  const grad = ctx.createLinearGradient(0, 0, 128, 0);
+  grad.addColorStop(0, '#1d3c6e');
+  grad.addColorStop(0.5, '#27508f');
+  grad.addColorStop(1, '#1d3c6e');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 128, 128);
+  // fabric weave
+  ctx.fillStyle = 'rgba(0,0,0,0.06)';
+  for (let y = 0; y < 128; y += 3) ctx.fillRect(0, y, 128, 1);
+  // gold trim top and bottom
+  ctx.fillStyle = '#d8a838';
+  ctx.fillRect(0, 0, 128, 5);
+  ctx.fillRect(0, 123, 128, 5);
+  // front lacing: crisscross gold cord between eyelets (center of texture = front)
+  ctx.strokeStyle = '#e8c050';
+  ctx.lineWidth = 2.5;
+  for (let i = 0; i < 5; i++) {
+    const y = 14 + i * 22;
+    ctx.beginPath();
+    ctx.moveTo(50, y);
+    ctx.lineTo(78, y + 22);
+    ctx.moveTo(78, y);
+    ctx.lineTo(50, y + 22);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#f0d878';
+  for (let i = 0; i <= 5; i++) {
+    const y = 14 + i * 22;
+    ctx.beginPath();
+    ctx.arc(50, Math.min(y, 124), 3, 0, Math.PI * 2);
+    ctx.arc(78, Math.min(y, 124), 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  return finish(c);
+}
+
+export function apronClothTexture(): THREE.CanvasTexture {
+  // cream apron with lace edge and tiny embroidered flowers
+  const [c, ctx] = makeCanvas(128);
+  ctx.fillStyle = '#efe8d2';
+  ctx.fillRect(0, 0, 128, 128);
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  for (let y = 0; y < 128; y += 2) ctx.fillRect(0, y, 128, 1);
+  // lace holes along bottom
+  ctx.fillStyle = 'rgba(120,100,70,0.35)';
+  for (let x = 6; x < 128; x += 12) {
+    ctx.beginPath();
+    ctx.arc(x, 118, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.strokeStyle = 'rgba(120,100,70,0.4)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(0, 110);
+  ctx.lineTo(128, 110);
+  ctx.stroke();
+  // scattered embroidered flowers
+  for (let i = 0; i < 6; i++) {
+    const fx = 12 + Math.random() * 104, fy = 15 + Math.random() * 80;
+    ctx.fillStyle = 'rgba(170,60,70,0.55)';
+    for (let p = 0; p < 5; p++) {
+      const a = (p / 5) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.arc(fx + Math.cos(a) * 3, fy + Math.sin(a) * 3, 1.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(220,170,50,0.8)';
+    ctx.beginPath();
+    ctx.arc(fx, fy, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  return finish(c);
+}
+
+export function skirtClothTexture(): THREE.CanvasTexture {
+  // blue dirndl skirt with soft vertical pleats and hem band
+  const [c, ctx] = makeCanvas(128);
+  ctx.fillStyle = '#2f5da6';
+  ctx.fillRect(0, 0, 128, 128);
+  for (let x = 0; x < 128; x += 16) {
+    const grad = ctx.createLinearGradient(x, 0, x + 16, 0);
+    grad.addColorStop(0, 'rgba(0,0,0,0.22)');
+    grad.addColorStop(0.4, 'rgba(255,255,255,0.10)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.10)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, 0, 16, 128);
+  }
+  ctx.fillStyle = 'rgba(0,0,0,0.05)';
+  for (let y = 0; y < 128; y += 3) ctx.fillRect(0, y, 128, 1);
+  // hem ribbon
+  ctx.fillStyle = '#d8a838';
+  ctx.fillRect(0, 116, 128, 4);
+  return finish(c);
+}
+
+export function checkerShirtTexture(color: 'red' | 'blue' = 'red'): THREE.CanvasTexture {
+  // classic Bavarian checkered shirt
+  const [c, ctx] = makeCanvas(64);
+  ctx.fillStyle = '#ece8dc';
+  ctx.fillRect(0, 0, 64, 64);
+  ctx.fillStyle = color === 'red' ? 'rgba(180,50,40,0.7)' : 'rgba(50,90,160,0.7)';
+  for (let i = 0; i < 8; i++) {
+    ctx.fillRect(i * 8, 0, 4, 64);
+    ctx.fillRect(0, i * 8, 64, 4);
+  }
+  ctx.fillStyle = 'rgba(0,0,0,0.05)';
+  for (let y = 0; y < 64; y += 2) ctx.fillRect(0, y, 64, 1);
+  return finish(c, 2);
 }
 
 export function numberTexture(n: number): THREE.CanvasTexture {

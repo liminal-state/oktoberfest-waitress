@@ -134,7 +134,7 @@ const clock = new THREE.Clock();
 
 // debug/testing handle (harmless in prod, used by automated verification)
 Object.assign(window as unknown as Record<string, unknown>, {
-  __game: { controller, tray, round, orders, guests, world, startRound, step },
+  __game: { controller, tray, round, orders, guests, world, startRound, step, waitress, camera },
 });
 
 function inZone(p: THREE.Vector3, z: { minX: number; maxX: number; minZ: number; maxZ: number }) {
