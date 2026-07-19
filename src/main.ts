@@ -58,13 +58,17 @@ guests.onBumpLine = (line) => {
 
 tray.onSpill = () => {
   round.stats.spills++;
+  // the waitress pays for the beer she wastes
+  round.addMoney(-CONFIG.orders.spillCost);
+  round.stats.spillLosses += CONFIG.orders.spillCost;
   const pos = controller.pos.clone();
   pos.x += Math.sin(controller.heading) * 0.5;
   pos.z += Math.cos(controller.heading) * 0.5;
   pos.y = 1.0;
   effects.spawnSplash(pos);
   audio.splash();
-  hud.toast('Spilled a Maß!', 'bad');
+  hud.toast(`Spilled a Maß! −€${CONFIG.orders.spillCost.toFixed(2)}`, 'bad');
+  if (round.money < 0) hud.toast("You're in DEBT to the tent!", 'bad');
 };
 
 // --- pointer lock ---

@@ -48,6 +48,7 @@ export const CONFIG = {
     bigGroupDecayMult: 0.6,    // ...but patience decays faster
     rejectShortfall: 0.5,      // deliver < 50% of ordered mugs -> rejected
     deliverRadius: 2.0,
+    spillCost: 4.0,            // € you pay to replace each spilled Maß — balance can go negative (debt!)
   },
 
   guests: {

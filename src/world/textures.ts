@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-// Low-res canvas textures with NearestFilter for that early-2000s texel chunk look.
+// Procedural canvas textures — hand-painted-realistic, linear-filtered.
 
 function makeCanvas(size: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
   const c = document.createElement('canvas');
@@ -11,8 +11,9 @@ function makeCanvas(size: number): [HTMLCanvasElement, CanvasRenderingContext2D]
 function finish(c: HTMLCanvasElement, repeat = 1): THREE.CanvasTexture {
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.magFilter = THREE.NearestFilter;
+  tex.magFilter = THREE.LinearFilter;
   tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.anisotropy = 4;
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(repeat, repeat);
   return tex;
@@ -26,78 +27,199 @@ function noiseSpeckle(ctx: CanvasRenderingContext2D, size: number, n: number, al
   }
 }
 
+function knot(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+  grad.addColorStop(0, 'rgba(40,22,8,0.85)');
+  grad.addColorStop(0.4, 'rgba(70,42,16,0.5)');
+  grad.addColorStop(1, 'rgba(70,42,16,0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.ellipse(x, y, r, r * 0.7, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // rings around the knot
+  ctx.strokeStyle = 'rgba(50,30,10,0.35)';
+  ctx.lineWidth = 1;
+  for (let i = 1; i <= 2; i++) {
+    ctx.beginPath();
+    ctx.ellipse(x, y, r * (1 + i * 0.5), r * 0.7 * (1 + i * 0.45), 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
 export function woodTexture(base = '#8a5a2b', repeat = 1): THREE.CanvasTexture {
-  const [c, ctx] = makeCanvas(128);
+  const [c, ctx] = makeCanvas(256);
   ctx.fillStyle = base;
-  ctx.fillRect(0, 0, 128, 128);
-  // planks
+  ctx.fillRect(0, 0, 256, 256);
   for (let p = 0; p < 4; p++) {
-    const y = p * 32;
-    ctx.fillStyle = `rgba(0,0,0,${0.12 + Math.random() * 0.1})`;
-    ctx.fillRect(0, y, 128, 2);
-    // grain streaks
-    for (let i = 0; i < 14; i++) {
-      ctx.strokeStyle = `rgba(${40 + Math.random() * 40},${20 + Math.random() * 20},0,${0.15 + Math.random() * 0.2})`;
-      ctx.lineWidth = 1;
+    const y = p * 64;
+    // per-plank tone variation
+    const tone = (Math.random() - 0.5) * 36;
+    ctx.fillStyle = `rgba(${tone > 0 ? 255 : 0},${tone > 0 ? 230 : 0},${tone > 0 ? 180 : 0},${Math.abs(tone) / 255})`;
+    ctx.fillRect(0, y, 256, 64);
+    // soft vertical shading inside the plank (lathe curvature)
+    const sh = ctx.createLinearGradient(0, y, 0, y + 64);
+    sh.addColorStop(0, 'rgba(0,0,0,0.18)');
+    sh.addColorStop(0.15, 'rgba(255,235,190,0.08)');
+    sh.addColorStop(0.85, 'rgba(0,0,0,0.05)');
+    sh.addColorStop(1, 'rgba(0,0,0,0.25)');
+    ctx.fillStyle = sh;
+    ctx.fillRect(0, y, 256, 64);
+    // grain: long wavy strokes of varying darkness and width
+    for (let i = 0; i < 22; i++) {
+      const dark = Math.random() < 0.75;
+      const a = 0.08 + Math.random() * 0.18;
+      ctx.strokeStyle = dark
+        ? `rgba(${45 + Math.random() * 35},${25 + Math.random() * 18},8,${a})`
+        : `rgba(235,205,150,${a * 0.8})`;
+      ctx.lineWidth = 0.5 + Math.random() * 1.6;
       ctx.beginPath();
-      const gy = y + 4 + Math.random() * 26;
+      const gy = y + 3 + Math.random() * 58;
       ctx.moveTo(0, gy);
-      ctx.bezierCurveTo(40, gy + (Math.random() - 0.5) * 6, 90, gy + (Math.random() - 0.5) * 6, 128, gy);
+      const wob = () => (Math.random() - 0.5) * 9;
+      ctx.bezierCurveTo(60, gy + wob(), 140, gy + wob(), 256, gy + (Math.random() - 0.5) * 4);
       ctx.stroke();
     }
+    // occasional knot
+    if (Math.random() < 0.7) knot(ctx, 30 + Math.random() * 196, y + 16 + Math.random() * 32, 4 + Math.random() * 5);
+    // plank gap: dark line + light catch below
+    ctx.fillStyle = 'rgba(20,10,4,0.55)';
+    ctx.fillRect(0, y + 62, 256, 3);
+    ctx.fillStyle = 'rgba(255,230,180,0.10)';
+    ctx.fillRect(0, y + 65 > 255 ? 0 : y + 65, 256, 1);
   }
-  noiseSpeckle(ctx, 128, 160, 0.12);
+  noiseSpeckle(ctx, 256, 500, 0.07);
   return finish(c, repeat);
 }
 
 export function floorTexture(): THREE.CanvasTexture {
-  // trampled dirty planks with spill stains
-  const [c, ctx] = makeCanvas(128);
+  // trampled beer-hall planks: tone-varied boards, staggered ends, stains, scuffs
+  const [c, ctx] = makeCanvas(256);
   ctx.fillStyle = '#6e4a22';
-  ctx.fillRect(0, 0, 128, 128);
+  ctx.fillRect(0, 0, 256, 256);
   for (let p = 0; p < 8; p++) {
-    const x = p * 16;
-    ctx.fillStyle = `rgba(0,0,0,${0.18 + Math.random() * 0.1})`;
-    ctx.fillRect(x, 0, 2, 128);
-    ctx.fillStyle = `rgba(255,220,150,${0.05 + Math.random() * 0.05})`;
-    ctx.fillRect(x + 2, 0, 14, 128);
+    const x = p * 32;
+    // per-board tone
+    const light = Math.random();
+    ctx.fillStyle = `rgba(${light > 0.5 ? 255 : 0},${light > 0.5 ? 225 : 0},${light > 0.5 ? 170 : 0},${0.04 + Math.abs(light - 0.5) * 0.22})`;
+    ctx.fillRect(x, 0, 32, 256);
+    // long grain
+    for (let i = 0; i < 12; i++) {
+      ctx.strokeStyle = `rgba(${38 + Math.random() * 30},${22 + Math.random() * 14},6,${0.10 + Math.random() * 0.15})`;
+      ctx.lineWidth = 0.5 + Math.random();
+      const gx = x + 2 + Math.random() * 28;
+      ctx.beginPath();
+      ctx.moveTo(gx, 0);
+      ctx.bezierCurveTo(gx + (Math.random() - 0.5) * 5, 80, gx + (Math.random() - 0.5) * 5, 180, gx, 256);
+      ctx.stroke();
+    }
+    // board gap + highlight
+    ctx.fillStyle = 'rgba(18,10,4,0.6)';
+    ctx.fillRect(x, 0, 2, 256);
+    ctx.fillStyle = 'rgba(255,225,170,0.08)';
+    ctx.fillRect(x + 2, 0, 1, 256);
+    // staggered board-end seam
+    const seamY = ((p * 97) % 256);
+    ctx.fillStyle = 'rgba(18,10,4,0.5)';
+    ctx.fillRect(x, seamY, 32, 2);
+    if (Math.random() < 0.4) knot(ctx, x + 8 + Math.random() * 16, Math.random() * 256, 3 + Math.random() * 3);
   }
-  // beer stains
-  for (let i = 0; i < 10; i++) {
-    ctx.fillStyle = `rgba(120,80,10,${0.10 + Math.random() * 0.15})`;
+  // beer stains: darker ring + lighter center, like dried spills
+  for (let i = 0; i < 12; i++) {
+    const sx = Math.random() * 256, sy = Math.random() * 256;
+    const r = 8 + Math.random() * 20;
+    const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, r);
+    grad.addColorStop(0, 'rgba(130,88,20,0.10)');
+    grad.addColorStop(0.75, 'rgba(95,60,12,0.14)');
+    grad.addColorStop(0.92, 'rgba(60,36,8,0.28)');
+    grad.addColorStop(1, 'rgba(60,36,8,0)');
+    ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.ellipse(Math.random() * 128, Math.random() * 128, 4 + Math.random() * 12, 3 + Math.random() * 8, Math.random() * 3, 0, Math.PI * 2);
+    ctx.ellipse(sx, sy, r, r * (0.6 + Math.random() * 0.4), Math.random() * 3, 0, Math.PI * 2);
     ctx.fill();
   }
-  noiseSpeckle(ctx, 128, 300, 0.15);
+  // scuffs
+  ctx.strokeStyle = 'rgba(30,18,8,0.20)';
+  for (let i = 0; i < 18; i++) {
+    ctx.lineWidth = 0.5 + Math.random();
+    ctx.beginPath();
+    const sx = Math.random() * 256, sy = Math.random() * 256;
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(sx + (Math.random() - 0.5) * 26, sy + (Math.random() - 0.5) * 10);
+    ctx.stroke();
+  }
+  noiseSpeckle(ctx, 256, 700, 0.10);
   return finish(c, 12);
 }
 
 export function tentStripeTexture(): THREE.CanvasTexture {
-  // Bavarian white/blue stripes, slightly grubby
-  const [c, ctx] = makeCanvas(128);
+  // Bavarian white/blue canvas: stripes with cloth shading, weave, grime
+  const [c, ctx] = makeCanvas(256);
   for (let i = 0; i < 8; i++) {
-    ctx.fillStyle = i % 2 === 0 ? '#e8e4d8' : '#3d6fb4';
-    ctx.fillRect(i * 16, 0, 16, 128);
+    const x = i * 32;
+    const blue = i % 2 === 1;
+    // stripe base with curvature shading (canvas bulges between seams)
+    const grad = ctx.createLinearGradient(x, 0, x + 32, 0);
+    if (blue) {
+      grad.addColorStop(0, '#33619e');
+      grad.addColorStop(0.5, '#4a7cc4');
+      grad.addColorStop(1, '#33619e');
+    } else {
+      grad.addColorStop(0, '#d3cfc0');
+      grad.addColorStop(0.5, '#f2eee0');
+      grad.addColorStop(1, '#d3cfc0');
+    }
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, 0, 32, 256);
+    // seam stitching
+    ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 2]);
+    ctx.beginPath();
+    ctx.moveTo(x + 0.5, 0);
+    ctx.lineTo(x + 0.5, 256);
+    ctx.stroke();
+    ctx.setLineDash([]);
   }
-  ctx.fillStyle = 'rgba(80,60,30,0.08)';
-  for (let i = 0; i < 40; i++) {
-    ctx.fillRect(Math.random() * 128, Math.random() * 128, 3 + Math.random() * 8, 2 + Math.random() * 4);
+  // horizontal weave lines
+  ctx.fillStyle = 'rgba(0,0,0,0.045)';
+  for (let y = 0; y < 256; y += 3) ctx.fillRect(0, y, 256, 1);
+  // grime patches
+  for (let i = 0; i < 30; i++) {
+    ctx.fillStyle = `rgba(80,60,30,${0.03 + Math.random() * 0.05})`;
+    ctx.beginPath();
+    ctx.ellipse(Math.random() * 256, Math.random() * 256, 4 + Math.random() * 14, 3 + Math.random() * 7, Math.random() * 3, 0, Math.PI * 2);
+    ctx.fill();
   }
   return finish(c, 1);
 }
 
 export function tableclothTexture(check: 'blue' | 'red' = 'blue'): THREE.CanvasTexture {
-  // gingham check
-  const [c, ctx] = makeCanvas(64);
-  ctx.fillStyle = '#e9e6da';
-  ctx.fillRect(0, 0, 64, 64);
-  ctx.fillStyle = check === 'blue' ? 'rgba(70,110,190,0.85)' : 'rgba(200,60,50,0.85)';
+  // woven gingham: overlapping semi-transparent bands read as fabric
+  const [c, ctx] = makeCanvas(128);
+  ctx.fillStyle = '#f0ede1';
+  ctx.fillRect(0, 0, 128, 128);
+  const col = check === 'blue' ? '70,110,190' : '198,58,48';
+  ctx.fillStyle = `rgba(${col},0.55)`;
   for (let i = 0; i < 4; i++) {
-    ctx.fillRect(i * 16, 0, 8, 64);
-    ctx.fillRect(0, i * 16, 64, 8);
+    ctx.fillRect(i * 32, 0, 16, 128); // vertical bands
+    ctx.fillRect(0, i * 32, 128, 16); // horizontal bands (intersections double up)
   }
-  noiseSpeckle(ctx, 64, 40, 0.08);
+  // thread texture: fine alternating lines
+  ctx.fillStyle = 'rgba(255,255,255,0.10)';
+  for (let y = 0; y < 128; y += 2) ctx.fillRect(0, y, 128, 1);
+  ctx.fillStyle = 'rgba(0,0,0,0.05)';
+  for (let x = 0; x < 128; x += 2) ctx.fillRect(x, 0, 1, 128);
+  // soft crease shadows
+  for (let i = 0; i < 3; i++) {
+    const y = 20 + Math.random() * 88;
+    const grad = ctx.createLinearGradient(0, y - 4, 0, y + 4);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(0.5, 'rgba(0,0,0,0.07)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, y - 4, 128, 8);
+  }
+  noiseSpeckle(ctx, 128, 60, 0.05);
   return finish(c, 3);
 }
 

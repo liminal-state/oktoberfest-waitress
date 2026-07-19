@@ -29,6 +29,7 @@ const CSS = `
   }
   #money { position: absolute; top: 14px; left: 14px; font-size: 28px; font-weight: bold;
     font-family: Impact, 'Arial Black', sans-serif; color: #ffd860; letter-spacing: 1px; }
+  #money.debt { color: #ff5040; animation: blink 0.6s infinite alternate; }
   #timer { position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
     font-size: 30px; font-family: Impact, 'Arial Black', sans-serif; }
   #timer.low { color: #ff5040; animation: blink 0.5s infinite alternate; }
@@ -151,7 +152,9 @@ export class HUD {
   }
 
   update(s: HudState, playerX: number, playerZ: number, playerHeading: number) {
-    this.money.textContent = `€ ${s.money.toFixed(2)}`;
+    this.money.textContent =
+      s.money < 0 ? `−€ ${Math.abs(s.money).toFixed(2)} DEBT` : `€ ${s.money.toFixed(2)}`;
+    this.money.classList.toggle('debt', s.money < 0);
     const m = Math.floor(s.timeLeft / 60);
     const sec = Math.floor(s.timeLeft % 60);
     this.timer.textContent = `${m}:${sec.toString().padStart(2, '0')}`;
@@ -303,15 +306,18 @@ export class HUD {
     this.clearScreen();
     const el = document.createElement('div');
     el.className = 'screen';
+    const inDebt = stats.earned < 0;
     el.innerHTML = `
-      <h2>SHIFT OVER!</h2>
-      <h1>€ ${stats.earned.toFixed(2)}</h1>
+      <h2>${inDebt ? 'SHIFT OVER — YOU OWE THE TENT!' : 'SHIFT OVER!'}</h2>
+      <h1 style="${inDebt ? 'color:#ff5040' : ''}">${inDebt ? '−' : ''}€ ${Math.abs(stats.earned).toFixed(2)}</h1>
       <table>
         <tr><td>Deliveries</td><td>${stats.deliveries}</td></tr>
         <tr><td>Mugs spilled</td><td>${stats.spills}</td></tr>
+        <tr><td>Spilled beer bill</td><td>−€ ${stats.spillLosses.toFixed(2)}</td></tr>
         <tr><td>Orders rejected</td><td>${stats.rejections}</td></tr>
         <tr><td>Best tip</td><td>€ ${stats.bestTip.toFixed(2)}</td></tr>
       </table>
+      ${inDebt ? '<p style="color:#ff8070">The Wirt is not amused. Work it off next shift.</p>' : ''}
       <button id="againbtn">ANOTHER SHIFT</button>
     `;
     document.body.appendChild(el);

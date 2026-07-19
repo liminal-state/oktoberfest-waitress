@@ -1,4 +1,32 @@
-// Tiny WebAudio synth: oompah band loop, crowd murmur, and one-shot SFX.
+// Tiny WebAudio synth: Bavarian polka band loop, crowd murmur, and one-shot SFX.
+
+const st = (semi: number, base: number) => base * Math.pow(2, semi / 12);
+const C2 = 65.41, C4 = 261.63, C5 = 523.25;
+
+// 8-bar polka in C, 2/4 time, one entry per bar
+interface Bar {
+  bassRoot: number;   // tuba beat 1
+  bassFifth: number;  // tuba beat 2
+  chord: number[];    // horn offbeat stab
+}
+const barC: Bar = { bassRoot: C2, bassFifth: st(7, C2), chord: [C4, st(4, C4), st(7, C4)] };
+const barF: Bar = { bassRoot: st(5, C2), bassFifth: C2, chord: [C4, st(5, C4), st(9, C4)] };
+const barG7: Bar = { bassRoot: st(-5, C2), bassFifth: st(2, C2), chord: [st(-1, C4), st(2, C4), st(5, C4), st(7, C4)] };
+const PROGRESSION: Bar[] = [barC, barC, barG7, barC, barF, barC, barG7, barC];
+
+// Clarinet melody: 8 bars x 4 eighth-notes. Semitones above C5, 'h' = hold, null = rest.
+// Original jaunty folk-polka phrase (arpeggio up, step down, cadence).
+const MELODY: (number | 'h' | null)[] = [
+  4, 7, 12, 7,      // E G C' G   (C)
+  4, 7, 4, 0,       // E G E C    (C)
+  2, 5, 5, 2,       // D F F D    (G7)
+  4, 'h', 0, null,  // E—  C      (C)
+  5, 9, 12, 9,      // F A C' A   (F)
+  7, 12, 7, 4,      // G C' G E   (C)
+  2, 7, 11, 14,     // D G B D'   (G7)
+  12, 'h', 'h', null, // C'———     (C)
+];
+
 export class AudioSys {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
@@ -30,28 +58,92 @@ export class AudioSys {
 
   private schedule() {
     if (!this.ctx) return;
-    const beatLen = 60 / 138; // brisk polka
-    while (this.nextBeat < this.ctx.currentTime + 0.35) {
-      this.oompahBeat(this.nextBeat, this.beatIndex);
-      this.nextBeat += beatLen;
+    const eighthLen = 60 / 126 / 2; // 126 BPM polka, eighth-note grid
+    while (this.nextBeat < this.ctx.currentTime + 0.4) {
+      this.polkaEighth(this.nextBeat, this.beatIndex, eighthLen);
+      this.nextBeat += eighthLen;
       this.beatIndex++;
     }
   }
 
-  private oompahBeat(t: number, i: number) {
+  private polkaEighth(t: number, i: number, eighthLen: number) {
     if (!this.ctx || !this.master) return;
-    const bar = i % 4;
-    if (bar === 0 || bar === 2) {
-      // OOM: tuba root note (alternate C2 / G1)
-      this.blip(t, bar === 0 ? 65.4 : 49, 'triangle', 0.22, 0.25);
-    } else {
-      // PAH: offbeat chord stab
-      this.blip(t, 261.6, 'square', 0.05, 0.08);
-      this.blip(t, 329.6, 'square', 0.04, 0.08);
-      this.blip(t, 392, 'square', 0.04, 0.08);
+    const slot = i % 4;               // eighth within the 2/4 bar
+    const barIdx = Math.floor(i / 4) % PROGRESSION.length;
+    const bar = PROGRESSION[barIdx];
+
+    if (slot === 0) this.tuba(t, bar.bassRoot);
+    if (slot === 2) this.tuba(t, bar.bassFifth);
+    if (slot === 1 || slot === 3) {
+      // PAH: horn section stab on the offbeat
+      for (const f of bar.chord) this.horn(t, f);
     }
-    // every 8 bars a little clarinet noodle note
-    if (i % 32 === 16) this.blip(t, 523 + Math.random() * 200, 'sawtooth', 0.03, 0.3);
+
+    // clarinet melody on every slot that has a note
+    const mi = i % MELODY.length;
+    const note = MELODY[mi];
+    if (typeof note === 'number') {
+      let slots = 1;
+      while (MELODY[(mi + slots) % MELODY.length] === 'h') slots++;
+      this.clarinet(t, st(note, C5), eighthLen * slots);
+    }
+  }
+
+  private tuba(t: number, freq: number) {
+    if (!this.ctx || !this.master) return;
+    const osc = this.ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.value = freq;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.001, t);
+    g.gain.exponentialRampToValueAtTime(0.3, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.24);
+    const lp = this.ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 350;
+    osc.connect(lp).connect(g).connect(this.master);
+    osc.start(t);
+    osc.stop(t + 0.3);
+  }
+
+  private horn(t: number, freq: number) {
+    if (!this.ctx || !this.master) return;
+    const osc = this.ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.value = freq;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.001, t);
+    g.gain.exponentialRampToValueAtTime(0.035, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+    const lp = this.ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 1800;
+    osc.connect(lp).connect(g).connect(this.master);
+    osc.start(t);
+    osc.stop(t + 0.12);
+  }
+
+  private clarinet(t: number, freq: number, dur: number) {
+    if (!this.ctx || !this.master) return;
+    const osc = this.ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.value = freq;
+    // gentle vibrato
+    const vib = this.ctx.createOscillator();
+    vib.frequency.value = 5.5;
+    const vibGain = this.ctx.createGain();
+    vibGain.gain.value = freq * 0.006;
+    vib.connect(vibGain).connect(osc.frequency);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.001, t);
+    g.gain.exponentialRampToValueAtTime(0.085, t + 0.02);
+    g.gain.setValueAtTime(0.085, t + Math.max(0.02, dur - 0.05));
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    osc.connect(g).connect(this.master);
+    osc.start(t);
+    vib.start(t);
+    osc.stop(t + dur + 0.02);
+    vib.stop(t + dur + 0.02);
   }
 
   private blip(t: number, freq: number, type: OscillatorType, gain: number, dur: number) {
