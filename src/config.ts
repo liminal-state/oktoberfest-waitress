@@ -22,17 +22,19 @@ export const CONFIG = {
   tray: {
     maxMugs: 8,
     // Tilt is a 2D vector; magnitude 1.0 = spill threshold.
-    driftBase: 0.030,          // random drift per second at 1 mug, standing still
+    // The bubble drifts slowly; moving the mouse steers it the same
+    // direction, so you nudge it back toward the bullseye.
+    driftBase: 0.035,          // random drift per second at 1 mug, standing still
     driftPerMug: 0.030,        // extra drift per additional mug
-    driftSpeedFactor: 0.16,    // extra drift scaled by walk speed fraction
-    turnImpulse: 0.11,         // tilt kick from sharp turning (per rad/s, scaled)
-    accelImpulse: 0.045,       // tilt kick from starting/stopping
-    bumpImpulse: 0.5,          // tilt kick from guest collision
-    mouseGain: 0.0035,         // tilt correction per pixel of mouse movement
-    damping: 0.25,             // passive self-centering per second (weak!)
+    driftSpeedFactor: 0.14,    // extra drift scaled by walk speed fraction
+    turnImpulse: 0.07,         // tilt kick from sharp turning (per rad/s, scaled)
+    accelImpulse: 0.03,        // tilt kick from starting/stopping
+    bumpImpulse: 0.35,         // tilt kick from guest collision
+    mouseGain: 0.0045,         // bubble movement per pixel of mouse movement
+    damping: 0.15,             // passive self-centering per second (weak!)
     spillThreshold: 1.0,
-    spillResetTo: 0.45,        // tilt magnitude after a mug spills (weight lost)
-    graceAfterSpillSec: 0.8,   // no double-spill window
+    spillResetTo: 0.35,        // tilt magnitude after a mug spills (weight lost)
+    graceAfterSpillSec: 1.2,   // no double-spill window
   },
 
   orders: {

@@ -32,6 +32,7 @@ export class Tray {
   private disc: THREE.Mesh;
   private mugMeshes: THREE.Group[] = [];
   private noisePhase = Math.random() * 100;
+  private driftAngle = Math.random() * Math.PI * 2;
   private grace = 0;
   private glassMat = new THREE.MeshLambertMaterial({ color: 0xffc860, transparent: true, opacity: 0.55 });
   private beerMat = new THREE.MeshLambertMaterial({ color: 0xf59e0b, emissive: 0x7a4200 });
@@ -93,25 +94,25 @@ export class Tray {
 
     const mugFactor = 1 + (this.mugs - 1) * (cfg.driftPerMug / cfg.driftBase) * 0.35;
 
-    // Unstable equilibrium: tilt feeds on itself. More mugs = more top-heavy.
-    const instability = 0.85 * mugFactor * f.driftMult;
-    this.tilt.x += this.tilt.x * instability * dt;
-    this.tilt.y += this.tilt.y * instability * dt;
-
-    // Wandering noise so standing still is never fully safe
-    this.noisePhase += dt * (1.3 + this.mugs * 0.15);
-    const noiseAmp =
-      (cfg.driftBase * mugFactor + cfg.driftSpeedFactor * f.speed01 + f.jostle) * f.driftMult * 3.2;
-    this.tilt.x += Math.sin(this.noisePhase * 1.7) * noiseAmp * dt;
-    this.tilt.y += Math.cos(this.noisePhase * 1.3 + 1.1) * noiseAmp * dt;
+    // Steady drift in a slowly wandering direction — accumulates until you
+    // steer the bubble back; worse with more mugs / speed / jostle.
+    // Damping below gives light loads a safe equilibrium.
+    this.noisePhase += dt;
+    this.driftAngle +=
+      (Math.sin(this.noisePhase * 0.31) + Math.sin(this.noisePhase * 0.17 + 2)) * 0.5 * dt;
+    const driftAmp =
+      (cfg.driftBase * mugFactor + cfg.driftSpeedFactor * f.speed01 + f.jostle) * f.driftMult;
+    this.tilt.x += Math.cos(this.driftAngle) * driftAmp * dt;
+    this.tilt.y += Math.sin(this.driftAngle) * driftAmp * dt;
 
     // Turning sloshes sideways, accel sloshes back
     this.tilt.x += f.turnRate * cfg.turnImpulse * (0.6 + this.mugs * 0.08) * dt;
     this.tilt.y -= f.accel * cfg.accelImpulse * (0.6 + this.mugs * 0.08) * dt;
 
-    // Mouse counter-steering
-    this.tilt.x -= f.mouseDx * cfg.mouseGain;
-    this.tilt.y -= f.mouseDy * cfg.mouseGain;
+    // Mouse steers the bubble: move the mouse toward the bullseye and the
+    // bubble follows in that direction
+    this.tilt.x += f.mouseDx * cfg.mouseGain;
+    this.tilt.y += f.mouseDy * cfg.mouseGain;
 
     // Weak passive damping
     const damp = Math.max(0, 1 - cfg.damping * dt);
