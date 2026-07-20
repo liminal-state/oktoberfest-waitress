@@ -67,14 +67,15 @@ export const CONFIG = {
 
   difficulty: {
     // multipliers ramp linearly from 1.0 to these by end of round
-    driftRampEnd: 1.5,
+    driftRampEnd: 1.8,
     wanderersRampExtra: 6,     // extra wanderers spawned over the round
     // selectable at shift start — scales tray drift speed and mouse
-    // responsiveness together, so higher levels feel twitchier to balance
+    // responsiveness together, so higher levels feel twitchier to balance.
+    // Wahnsinn is meant to be a clear step past Zünftig, not a half-step.
     levels: [
-      { name: 'Gemütlich', subtitle: 'Easy — steady tray', driftMult: 0.65, mouseGainMult: 0.85 },
-      { name: 'Zünftig', subtitle: 'Medium', driftMult: 1.0, mouseGainMult: 1.0 },
-      { name: 'Wahnsinn', subtitle: 'Hard — twitchy tray', driftMult: 1.45, mouseGainMult: 1.3 },
+      { name: 'Gemütlich', subtitle: 'Easy — steady tray', driftMult: 0.7, mouseGainMult: 0.9 },
+      { name: 'Zünftig', subtitle: 'Medium', driftMult: 1.2, mouseGainMult: 1.05 },
+      { name: 'Wahnsinn', subtitle: 'Hard — twitchy tray', driftMult: 2.3, mouseGainMult: 1.7 },
     ] as { name: string; subtitle: string; driftMult: number; mouseGainMult: number }[],
   },
 };
