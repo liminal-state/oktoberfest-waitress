@@ -2,7 +2,7 @@
 
 export const CONFIG = {
   round: {
-    durationSec: 180,
+    durationSec: 90,
   },
 
   player: {
@@ -68,5 +68,12 @@ export const CONFIG = {
     // multipliers ramp linearly from 1.0 to these by end of round
     driftRampEnd: 1.5,
     wanderersRampExtra: 3,     // extra wanderers spawned over the round
+    // selectable at shift start — scales tray drift speed and mouse
+    // responsiveness together, so higher levels feel twitchier to balance
+    levels: [
+      { name: 'Gemütlich', subtitle: 'Easy — steady tray', driftMult: 0.65, mouseGainMult: 0.85 },
+      { name: 'Zünftig', subtitle: 'Medium', driftMult: 1.0, mouseGainMult: 1.0 },
+      { name: 'Wahnsinn', subtitle: 'Hard — twitchy tray', driftMult: 1.45, mouseGainMult: 1.3 },
+    ] as { name: string; subtitle: string; driftMult: number; mouseGainMult: number }[],
   },
 };

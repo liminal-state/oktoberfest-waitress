@@ -1,6 +1,7 @@
 import type { Order } from '../game/orders';
 import type { RoundStats } from '../game/round';
 import type { TableInfo } from '../world/tables';
+import { CONFIG } from '../config';
 
 export interface HudState {
   money: number;
@@ -30,9 +31,10 @@ const CSS = `
   #money { position: absolute; top: 14px; left: 14px; font-size: 28px; font-weight: bold;
     font-family: Impact, 'Arial Black', sans-serif; color: #ffd860; letter-spacing: 1px; }
   #money.debt { color: #ff5040; animation: blink 0.6s infinite alternate; }
-  #timer { position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
-    font-size: 30px; font-family: Impact, 'Arial Black', sans-serif; }
-  #timer.low { color: #ff5040; animation: blink 0.5s infinite alternate; }
+  #timer { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); text-align: center; }
+  #timerval { font-size: 30px; font-family: Impact, 'Arial Black', sans-serif; line-height: 1; }
+  #timer.low #timerval { color: #ff5040; animation: blink 0.5s infinite alternate; }
+  #pausehint { font-size: 10px; letter-spacing: 0.5px; opacity: 0.7; margin-top: 2px; }
   @keyframes blink { from { opacity: 1; } to { opacity: 0.4; } }
   #ticket { position: absolute; top: 14px; right: 14px; width: 200px; font-size: 16px; }
   #ticket .tbl { font-size: 24px; font-family: Impact, 'Arial Black', sans-serif; color: #ffd860; }
@@ -84,12 +86,25 @@ const CSS = `
   .screen button:hover { filter: brightness(1.1); }
   .screen table { font-size: 18px; border-spacing: 18px 4px; }
   .screen td:last-child { text-align: right; color: #ffd860; font-weight: bold; }
+  .screen .row { display: flex; gap: 14px; }
+  #difficulty { display: flex; gap: 12px; }
+  .diffbtn { pointer-events: auto; cursor: pointer; border: 3px solid #8a6a30; border-radius: 8px;
+    padding: 10px 18px; background: rgba(36,23,8,0.6); min-width: 130px; transition: filter 0.15s, border-color 0.15s; }
+  .diffbtn:hover { filter: brightness(1.2); }
+  .diffbtn b { display: block; font-family: Impact, 'Arial Black', sans-serif; font-size: 16px;
+    color: #f5f0e0; letter-spacing: 1px; }
+  .diffbtn span { display: block; font-size: 12px; color: #d8c8a0; margin-top: 4px; }
+  .diffbtn.selected { border-color: #ffd860; background: rgba(200,168,80,0.28); }
+  .diffbtn.selected b { color: #ffd860; }
+  .screen button.secondary { background: linear-gradient(#8a8880, #4a4840); font-size: 20px; padding: 10px 28px; }
+  .screen button.danger { background: linear-gradient(#e87050, #a83820); font-size: 20px; padding: 10px 28px; }
 `;
 
 export class HUD {
   private root: HTMLDivElement;
   private money!: HTMLDivElement;
   private timer!: HTMLDivElement;
+  private timerVal!: HTMLDivElement;
   private ticket!: HTMLDivElement;
   private tipbar!: HTMLDivElement;
   private gauge!: HTMLCanvasElement;
@@ -110,7 +125,7 @@ export class HUD {
     this.root.id = 'hud';
     this.root.innerHTML = `
       <div id="money" class="panel">€ 0.00</div>
-      <div id="timer" class="panel">3:00</div>
+      <div id="timer" class="panel"><div id="timerval">1:30</div><div id="pausehint">ESC ⏸ pause</div></div>
       <div id="ticket" class="panel">
         <div class="tbl">Table –</div>
         <div class="mugs">–</div>
@@ -127,6 +142,7 @@ export class HUD {
     document.body.appendChild(this.root);
     this.money = this.root.querySelector('#money')!;
     this.timer = this.root.querySelector('#timer')!;
+    this.timerVal = this.root.querySelector('#timerval')!;
     this.ticket = this.root.querySelector('#ticket')!;
     this.tipbar = this.root.querySelector('#tipbar')!;
     this.gauge = this.root.querySelector('#gauge')!;
@@ -157,7 +173,7 @@ export class HUD {
     this.money.classList.toggle('debt', s.money < 0);
     const m = Math.floor(s.timeLeft / 60);
     const sec = Math.floor(s.timeLeft % 60);
-    this.timer.textContent = `${m}:${sec.toString().padStart(2, '0')}`;
+    this.timerVal.textContent = `${m}:${sec.toString().padStart(2, '0')}`;
     this.timer.classList.toggle('low', s.timeLeft < 30);
 
     if (s.order) {
@@ -279,26 +295,77 @@ export class HUD {
     this.screenEl = null;
   }
 
-  showMenu(onStart: () => void) {
+  showMenu(onStart: (level: number) => void) {
     this.clearScreen();
     const el = document.createElement('div');
     el.className = 'screen';
+    const diffButtons = CONFIG.difficulty.levels
+      .map(
+        (lvl, i) => `
+      <div class="diffbtn${i === 1 ? ' selected' : ''}" data-level="${i}">
+        <b>${lvl.name}</b><span>${lvl.subtitle}</span>
+      </div>`,
+      )
+      .join('');
     el.innerHTML = `
       <h1>PROST!</h1>
       <h2 style="font-size:24px;color:#f5f0e0;">Oktoberfest Waitress Simulator</h2>
       <p>Carry Maß beers from the bar to the numbered tables before the shift ends.
       The more mugs you stack on the tray, the harder it is to keep level.</p>
       <p><b>WASD</b> — walk &nbsp;•&nbsp; <b>Mouse</b> — balance the tray &nbsp;•&nbsp;
-      <b>1–8</b> at the bar — load mugs</p>
+      <b>1–8</b> at the bar — load mugs &nbsp;•&nbsp; <b>ESC</b> — pause</p>
       <p>Deliver fast for tips. Spill too much and the table refuses the round —
-      back to the bar with you.</p>
+      and every spilled Maß comes out of your pay.</p>
+      <div id="difficulty">${diffButtons}</div>
       <button id="startbtn">START SHIFT</button>
     `;
     document.body.appendChild(el);
     this.screenEl = el;
+    let selected = 1;
+    const btns = el.querySelectorAll<HTMLDivElement>('.diffbtn');
+    btns.forEach((b) =>
+      b.addEventListener('click', () => {
+        selected = parseInt(b.dataset.level!, 10);
+        btns.forEach((x) => x.classList.remove('selected'));
+        b.classList.add('selected');
+      }),
+    );
     el.querySelector('#startbtn')!.addEventListener('click', () => {
       this.clearScreen();
-      onStart();
+      onStart(selected);
+    });
+  }
+
+  showPause(state: { money: number; timeLeft: number }, onResume: () => void, onEndShift: () => void, onQuit: () => void) {
+    this.clearScreen();
+    const el = document.createElement('div');
+    el.className = 'screen';
+    const moneyStr =
+      state.money < 0 ? `−€ ${Math.abs(state.money).toFixed(2)} DEBT` : `€ ${state.money.toFixed(2)}`;
+    const m = Math.floor(state.timeLeft / 60);
+    const sec = Math.floor(state.timeLeft % 60);
+    el.innerHTML = `
+      <h2>PAUSED</h2>
+      <p>${moneyStr} earned so far &nbsp;•&nbsp; ${m}:${sec.toString().padStart(2, '0')} left</p>
+      <button id="resumebtn">RESUME</button>
+      <div class="row">
+        <button id="endbtn" class="danger">END SHIFT</button>
+        <button id="quitbtn" class="secondary">QUIT TO MENU</button>
+      </div>
+    `;
+    document.body.appendChild(el);
+    this.screenEl = el;
+    el.querySelector('#resumebtn')!.addEventListener('click', () => {
+      this.clearScreen();
+      onResume();
+    });
+    el.querySelector('#endbtn')!.addEventListener('click', () => {
+      this.clearScreen();
+      onEndShift();
+    });
+    el.querySelector('#quitbtn')!.addEventListener('click', () => {
+      this.clearScreen();
+      onQuit();
     });
   }
 

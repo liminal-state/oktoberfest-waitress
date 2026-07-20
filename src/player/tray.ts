@@ -9,6 +9,7 @@ export interface TrayFrameInput {
   mouseDy: number;
   jostle: number;     // extra drift/s from crowd (0 when calm)
   driftMult: number;  // difficulty ramp
+  mouseGainMult: number; // difficulty-level mouse responsiveness
 }
 
 // Mug offsets on the tray disc for counts 1..8
@@ -111,8 +112,8 @@ export class Tray {
 
     // Mouse steers the bubble: move the mouse toward the bullseye and the
     // bubble follows in that direction
-    this.tilt.x += f.mouseDx * cfg.mouseGain;
-    this.tilt.y += f.mouseDy * cfg.mouseGain;
+    this.tilt.x += f.mouseDx * cfg.mouseGain * f.mouseGainMult;
+    this.tilt.y += f.mouseDy * cfg.mouseGain * f.mouseGainMult;
 
     // Weak passive damping
     const damp = Math.max(0, 1 - cfg.damping * dt);

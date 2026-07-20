@@ -50,7 +50,7 @@ const hud = new HUD(tables);
 const effects = new Effects(scene);
 const audio = new AudioSys();
 
-let state: 'menu' | 'playing' | 'results' = 'menu';
+let state: 'menu' | 'playing' | 'paused' | 'results' = 'menu';
 
 guests.onBumpLine = (line) => {
   if (state === 'playing') hud.toast(line, 'neutral');
@@ -84,8 +84,8 @@ document.addEventListener('pointerlockchange', () => {
 });
 
 // --- game state ---
-function startRound() {
-  round.start();
+function startRound(level = 1) {
+  round.start(level);
   orders.newOrder(0);
   tray.setMugs(0);
   controller.pos.set(2.5, 0, 14);
@@ -102,8 +102,37 @@ function endRound() {
   hud.setVisible(false);
   hud.showClickToResume(false);
   if (document.pointerLockElement) document.exitPointerLock();
-  hud.showResults(round.stats, startRound);
+  hud.showResults(round.stats, () => hud.showMenu(startRound));
 }
+
+function pauseGame() {
+  if (state !== 'playing') return;
+  state = 'paused';
+  hud.showClickToResume(false);
+  if (document.pointerLockElement) document.exitPointerLock();
+  audio.pause();
+  hud.showPause({ money: round.money, timeLeft: round.timeLeft }, resumeGame, endRound, quitToMenu);
+}
+
+function resumeGame() {
+  if (state !== 'paused') return;
+  state = 'playing';
+  audio.resume();
+  grabMouse();
+}
+
+function quitToMenu() {
+  state = 'menu';
+  hud.setVisible(false);
+  audio.pause();
+  hud.showMenu(startRound);
+}
+
+window.addEventListener('keydown', (e) => {
+  if (e.code !== 'Escape') return;
+  if (state === 'playing') pauseGame();
+  else if (state === 'paused') resumeGame();
+});
 
 hud.showMenu(startRound);
 
@@ -167,6 +196,7 @@ function step(dt: number) {
       mouseDy: mouse.dy,
       jostle: guestRes.jostle,
       driftMult: round.driftMult,
+      mouseGainMult: round.mouseGainMult,
     });
 
     orders.update(dt);

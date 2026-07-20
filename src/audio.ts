@@ -56,6 +56,15 @@ export class AudioSys {
     }
   }
 
+  /** Silences output without tearing down the scheduler — safe to resume(). */
+  pause() {
+    this.ctx?.suspend();
+  }
+
+  resume() {
+    this.ctx?.resume();
+  }
+
   private schedule() {
     if (!this.ctx) return;
     const eighthLen = 60 / 126 / 2; // 126 BPM polka, eighth-note grid
