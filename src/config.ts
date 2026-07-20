@@ -17,6 +17,11 @@ export const CONFIG = {
     height: 3.0,
     lookAtHeight: 1.2,
     lerp: 5,
+    minDistance: 0.05,      // defensive epsilon only — see updateCamera()
+    collisionRadius: 0.3,   // margin kept between the camera and scenery;
+                             // must stay below player.radius (0.35) or the
+                             // spring-arm clamp can flip to the wrong side
+                             // of the player when she's pressed against a wall
   },
 
   tray: {

@@ -254,7 +254,7 @@ function step(dt: number) {
     waitress.group.position.copy(controller.pos);
     waitress.group.rotation.y = controller.heading;
     waitress.update(dt, controller.speed01);
-    controller.updateCamera(camera, dt);
+    controller.updateCamera(camera, dt, world.colliders, world.bounds);
 
     hud.update(
       {

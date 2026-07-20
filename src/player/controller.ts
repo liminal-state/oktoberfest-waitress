@@ -132,9 +132,27 @@ export class PlayerController {
     this.vel.add(dir.clone().normalize().multiplyScalar(strength));
   }
 
-  updateCamera(camera: THREE.PerspectiveCamera, dt: number) {
+  updateCamera(camera: THREE.PerspectiveCamera, dt: number, colliders: AABB[], bounds: AABB) {
     const cfg = CONFIG.camera;
-    const target = new THREE.Vector3(this.pos.x, cfg.height, this.pos.z + cfg.distance);
+    // Camera always trails on the +z side of the player (it never rotates
+    // with heading), so the only thing that can clip it is scenery sitting
+    // between the player and that +z offset — the bar counter/shelf chief
+    // among them. Pull the "spring arm" in short of the nearest one instead
+    // of letting the camera end up embedded in the geometry.
+    let desiredZ = this.pos.z + cfg.distance;
+    desiredZ = Math.min(desiredZ, bounds.maxZ - cfg.collisionRadius);
+    for (const c of colliders) {
+      if (this.pos.x + cfg.collisionRadius < c.minX || this.pos.x - cfg.collisionRadius > c.maxX) continue;
+      if (c.minZ > this.pos.z) {
+        desiredZ = Math.min(desiredZ, c.minZ - cfg.collisionRadius);
+      }
+    }
+    // collisionRadius is kept under the player's own collision radius, so this
+    // floor is just a defensive epsilon — it should never actually bind, since
+    // the player can never get closer to a collider than her own radius allows
+    desiredZ = Math.max(desiredZ, this.pos.z + cfg.minDistance);
+
+    const target = new THREE.Vector3(this.pos.x, cfg.height, desiredZ);
     const k = 1 - Math.exp(-cfg.lerp * dt);
     camera.position.lerp(target, k);
     camera.lookAt(this.pos.x, cfg.lookAtHeight, this.pos.z);
