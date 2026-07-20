@@ -12,7 +12,7 @@ export interface Order {
 export type DeliveryResult =
   | { type: 'none' }
   | { type: 'delivered'; pay: number; tip: number; mugsUsed: number; tableId: number }
-  | { type: 'rejected'; tableId: number };
+  | { type: 'insufficient'; tableId: number; have: number; need: number };
 
 export class OrderSystem {
   current: Order | null = null;
@@ -58,12 +58,13 @@ export class OrderSystem {
     const d = Math.hypot(playerPos.x - table.position.x, playerPos.z - table.position.z);
     if (d > cfg.deliverRadius + 1.55) return { type: 'none' }; // 1.55 ≈ table half depth w/ benches
 
-    if (mugsOnTray < order.mugs * cfg.rejectShortfall) {
-      return { type: 'rejected', tableId: order.tableId };
+    // must bring the full order — short trays are turned away, not accepted at a discount
+    if (mugsOnTray < order.mugs) {
+      return { type: 'insufficient', tableId: order.tableId, have: mugsOnTray, need: order.mugs };
     }
 
-    const counted = Math.min(mugsOnTray, order.mugs);
-    const extras = Math.max(0, mugsOnTray - order.mugs);
+    const counted = order.mugs;
+    const extras = mugsOnTray - order.mugs;
     const pay = counted * cfg.basePayPerMug + extras * cfg.basePayPerMug * 0.5;
     const tipMult = order.big ? cfg.bigGroupTipMult : 1;
     const tip = counted * cfg.tipMaxPerMug * tipMult * this.tipFraction();

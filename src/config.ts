@@ -35,6 +35,8 @@ export const CONFIG = {
     spillThreshold: 1.0,
     spillResetTo: 0.35,        // tilt magnitude after a mug spills (weight lost)
     graceAfterSpillSec: 1.2,   // no double-spill window
+    loadBaseSec: 0.35,         // fixed time to grab any order at the bar
+    loadPerMugSec: 0.12,       // extra time per mug — bigger trays take longer to load
   },
 
   orders: {
@@ -46,15 +48,14 @@ export const CONFIG = {
     bigGroupThreshold: 6,      // >= this: big group
     bigGroupTipMult: 1.8,      // bigger tips...
     bigGroupDecayMult: 0.6,    // ...but patience decays faster
-    rejectShortfall: 0.5,      // deliver < 50% of ordered mugs -> rejected
     deliverRadius: 2.0,
     spillCost: 4.0,            // € you pay to replace each spilled Maß — balance can go negative (debt!)
   },
 
   guests: {
     seatedPerTable: 6,
-    wanderers: 5,
-    wandererSpeed: 1.1,
+    wanderers: 9,
+    wandererSpeed: 1.25,
     bumpRadius: 0.75,
     bumpCooldownSec: 1.5,
     toastIntervalSec: [35, 60] as [number, number],
@@ -67,7 +68,7 @@ export const CONFIG = {
   difficulty: {
     // multipliers ramp linearly from 1.0 to these by end of round
     driftRampEnd: 1.5,
-    wanderersRampExtra: 3,     // extra wanderers spawned over the round
+    wanderersRampExtra: 6,     // extra wanderers spawned over the round
     // selectable at shift start — scales tray drift speed and mouse
     // responsiveness together, so higher levels feel twitchier to balance
     levels: [

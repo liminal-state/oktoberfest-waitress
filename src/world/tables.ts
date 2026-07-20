@@ -24,8 +24,8 @@ export function buildTables(scene: THREE.Scene, colliders: AABB[]): TableInfo[] 
 
   let id = 1;
   for (let row = 0; row < 5; row++) {
-    for (const colX of [-7.5, 7.5]) {
-      const z = -13 + row * 5.2;
+    for (const colX of [-6.2, 6.2]) {
+      const z = -13 + row * 4.6;
       const g = new THREE.Group();
 
       const top = new THREE.Mesh(tableGeo, id % 2 === 0 ? topMatRed : topMatBlue);

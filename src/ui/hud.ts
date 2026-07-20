@@ -14,6 +14,7 @@ export interface HudState {
   tiltY: number;
   inBarZone: boolean;
   toastActive: boolean;
+  loading: { n: number; progress01: number } | null;
 }
 
 const CSS = `
@@ -50,6 +51,9 @@ const CSS = `
     font-family: Impact, 'Arial Black', sans-serif; }
   #barhint { position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%);
     font-size: 20px; text-align: center; display: none; }
+  #loadbarwrap { height: 10px; width: 180px; margin: 6px auto 0; background: #1a1005;
+    border: 1px solid #c8a850; border-radius: 3px; overflow: hidden; }
+  #loadbarfill { height: 100%; background: linear-gradient(90deg, #ffd860, #ff9040); width: 0%; }
   #minimap { position: absolute; bottom: 20px; right: 20px; border: 3px solid #c8a850;
     border-radius: 4px; background: #241708; }
   #toasts { position: absolute; top: 25%; left: 50%; transform: translateX(-50%);
@@ -187,9 +191,16 @@ export class HUD {
 
     if (s.inBarZone) {
       this.barhint.style.display = 'block';
-      this.barhint.innerHTML = s.order
-        ? `<b>BAR</b> — press <b>1–8</b> to load mugs &nbsp;(order: <b>${s.order.mugs}</b>)`
-        : `<b>BAR</b> — press <b>1–8</b> to load mugs`;
+      if (s.loading) {
+        const pct = Math.round(s.loading.progress01 * 100);
+        this.barhint.innerHTML =
+          `<b>Grabbing ${s.loading.n} Maß…</b>` +
+          `<div id="loadbarwrap"><div id="loadbarfill" style="width:${pct}%"></div></div>`;
+      } else {
+        this.barhint.innerHTML = s.order
+          ? `<b>BAR</b> — press <b>1–8</b> to load mugs &nbsp;(order: <b>${s.order.mugs}</b>)`
+          : `<b>BAR</b> — press <b>1–8</b> to load mugs`;
+      }
     } else {
       this.barhint.style.display = 'none';
     }
@@ -381,7 +392,6 @@ export class HUD {
         <tr><td>Deliveries</td><td>${stats.deliveries}</td></tr>
         <tr><td>Mugs spilled</td><td>${stats.spills}</td></tr>
         <tr><td>Spilled beer bill</td><td>−€ ${stats.spillLosses.toFixed(2)}</td></tr>
-        <tr><td>Orders rejected</td><td>${stats.rejections}</td></tr>
         <tr><td>Best tip</td><td>€ ${stats.bestTip.toFixed(2)}</td></tr>
       </table>
       ${inDebt ? '<p style="color:#ff8070">The Wirt is not amused. Work it off next shift.</p>' : ''}

@@ -137,6 +137,7 @@ window.addEventListener('keydown', (e) => {
 hud.showMenu(startRound);
 
 // --- delivery handling ---
+let lastInsufficientTable = -1;
 function handleDelivery() {
   const res = orders.tryDeliver(controller.pos, tray.mugs);
   if (res.type === 'delivered') {
@@ -150,13 +151,27 @@ function handleDelivery() {
     tray.setMugs(0);
     orders.newOrder(round.difficulty01);
     hud.toast(`New order: Table ${orders.current!.tableId}`, 'neutral');
-  } else if (res.type === 'rejected') {
-    round.stats.rejections++;
-    hud.toast(`Table ${res.tableId} refuses! Not enough beer!`, 'bad');
-    audio.reject();
-    tray.setMugs(0); // they dump your sad half-order
+    lastInsufficientTable = -1;
+  } else if (res.type === 'insufficient') {
+    // not enough beer to fill the order — no delivery happens, tray is untouched;
+    // she has to walk back to the bar and load more (only toast once per approach)
+    if (lastInsufficientTable !== res.tableId) {
+      hud.toast(`Table ${res.tableId} needs ${res.need} Maß — you only have ${res.have}! Back to the bar.`, 'bad');
+      audio.reject();
+      lastInsufficientTable = res.tableId;
+    }
+  } else {
+    lastInsufficientTable = -1;
   }
 }
+
+// --- bar pickup: grabbing a full tray takes a moment ---
+interface LoadState {
+  n: number;
+  timer: number;
+  total: number;
+}
+let loading: LoadState | null = null;
 
 // --- main loop ---
 const clock = new THREE.Clock();
@@ -182,7 +197,14 @@ function step(dt: number) {
     const guestRes = guests.update(dt, controller.pos);
     if (guestRes.toastJustStarted) audio.cheer();
 
-    controller.update(dt, input, world.colliders, world.bounds, tray.mugs, guestRes.slowFactor);
+    if (loading) {
+      // frozen at the counter while she grabs the mugs
+      controller.speed01 = 0;
+      controller.turnRate = 0;
+      controller.accelMag = 0;
+    } else {
+      controller.update(dt, input, world.colliders, world.bounds, tray.mugs, guestRes.slowFactor);
+    }
 
     if (guestRes.bumped && tray.mugs > 0) tray.bump(CONFIG.tray.bumpImpulse * (0.7 + Math.random() * 0.6));
 
@@ -201,15 +223,25 @@ function step(dt: number) {
 
     orders.update(dt);
 
-    // bar: load mugs
+    // bar: grabbing a tray of mugs takes a moment; pressing a new number
+    // while already loading re-targets the grab instead of queuing it
     const atBar = inZone(controller.pos, world.barZone);
     const n = input.consumeNumber();
-    if (atBar && n !== null && n >= 1 && n <= CONFIG.tray.maxMugs) {
-      tray.setMugs(n);
+    if (atBar && n !== null && n >= 1 && n <= CONFIG.tray.maxMugs && (n !== tray.mugs || loading)) {
+      const total = CONFIG.tray.loadBaseSec + n * CONFIG.tray.loadPerMugSec;
+      loading = { n, timer: total, total };
       audio.clink();
     }
-
-    handleDelivery();
+    if (loading) {
+      loading.timer -= dt;
+      if (loading.timer <= 0) {
+        tray.setMugs(loading.n);
+        audio.clink();
+        loading = null;
+      }
+    } else {
+      handleDelivery();
+    }
 
     hud.showClickToResume(document.pointerLockElement !== canvas);
 
@@ -236,6 +268,7 @@ function step(dt: number) {
         tiltY: Math.max(-1, Math.min(1, tray.tilt.y)),
         inBarZone: atBar,
         toastActive: guestRes.toastActive,
+        loading: loading ? { n: loading.n, progress01: 1 - loading.timer / loading.total } : null,
       },
       controller.pos.x,
       controller.pos.z,
