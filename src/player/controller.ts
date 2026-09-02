@@ -79,6 +79,43 @@ function collideCircle(pos: THREE.Vector3, radius: number, boxes: AABB[], bounds
   }
 }
 
+// Sweeps from the player toward a candidate camera offset and stops short of
+// the first collider or bound in the way, so the spring-arm works for any
+// facing direction (not just the one fixed axis the old camera assumed).
+function cameraSpringArm(
+  playerPos: THREE.Vector3,
+  dirX: number,
+  dirZ: number,
+  maxDist: number,
+  colliders: AABB[],
+  bounds: AABB,
+  radius: number,
+): THREE.Vector2 {
+  const steps = 24;
+  const stepDist = maxDist / steps;
+  let clearDist = maxDist;
+  for (let i = 1; i <= steps; i++) {
+    const t = i * stepDist;
+    const x = playerPos.x + dirX * t;
+    const z = playerPos.z + dirZ * t;
+    let blocked =
+      x < bounds.minX + radius || x > bounds.maxX - radius || z < bounds.minZ + radius || z > bounds.maxZ - radius;
+    if (!blocked) {
+      for (const c of colliders) {
+        if (x > c.minX - radius && x < c.maxX + radius && z > c.minZ - radius && z < c.maxZ + radius) {
+          blocked = true;
+          break;
+        }
+      }
+    }
+    if (blocked) {
+      clearDist = Math.max(0, t - stepDist);
+      break;
+    }
+  }
+  return new THREE.Vector2(playerPos.x + dirX * clearDist, playerPos.z + dirZ * clearDist);
+}
+
 export class PlayerController {
   pos = new THREE.Vector3(2.5, 0, 14); // start near the bar, off the pole line
   heading = 0;                       // facing south (+z) toward the bar
@@ -134,25 +171,14 @@ export class PlayerController {
 
   updateCamera(camera: THREE.PerspectiveCamera, dt: number, colliders: AABB[], bounds: AABB) {
     const cfg = CONFIG.camera;
-    // Camera always trails on the +z side of the player (it never rotates
-    // with heading), so the only thing that can clip it is scenery sitting
-    // between the player and that +z offset — the bar counter/shelf chief
-    // among them. Pull the "spring arm" in short of the nearest one instead
-    // of letting the camera end up embedded in the geometry.
-    let desiredZ = this.pos.z + cfg.distance;
-    desiredZ = Math.min(desiredZ, bounds.maxZ - cfg.collisionRadius);
-    for (const c of colliders) {
-      if (this.pos.x + cfg.collisionRadius < c.minX || this.pos.x - cfg.collisionRadius > c.maxX) continue;
-      if (c.minZ > this.pos.z) {
-        desiredZ = Math.min(desiredZ, c.minZ - cfg.collisionRadius);
-      }
-    }
-    // collisionRadius is kept under the player's own collision radius, so this
-    // floor is just a defensive epsilon — it should never actually bind, since
-    // the player can never get closer to a collider than her own radius allows
-    desiredZ = Math.max(desiredZ, this.pos.z + cfg.minDistance);
+    // Camera trails behind the player relative to her current heading (not a
+    // fixed world direction), so whatever she's walking toward — bar or
+    // tables — is always the thing in view, not whatever's behind her.
+    const fwdX = Math.sin(this.heading);
+    const fwdZ = Math.cos(this.heading);
+    const arm = cameraSpringArm(this.pos, -fwdX, -fwdZ, cfg.distance, colliders, bounds, cfg.collisionRadius);
 
-    const target = new THREE.Vector3(this.pos.x, cfg.height, desiredZ);
+    const target = new THREE.Vector3(arm.x, cfg.height, arm.y);
     const k = 1 - Math.exp(-cfg.lerp * dt);
     camera.position.lerp(target, k);
     camera.lookAt(this.pos.x, cfg.lookAtHeight, this.pos.z);

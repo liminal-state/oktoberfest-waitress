@@ -5,6 +5,7 @@ import { CONFIG } from '../config';
 
 export interface HudState {
   money: number;
+  target: number;
   timeLeft: number;
   order: Order | null;
   tipFraction: number;
@@ -32,6 +33,9 @@ const CSS = `
   #money { position: absolute; top: 14px; left: 14px; font-size: 28px; font-weight: bold;
     font-family: Impact, 'Arial Black', sans-serif; color: #ffd860; letter-spacing: 1px; }
   #money.debt { color: #ff5040; animation: blink 0.6s infinite alternate; }
+  #moneytarget { font-size: 12px; font-weight: normal; font-family: Verdana, sans-serif;
+    color: #d8c8a0; margin-top: 2px; letter-spacing: 0; }
+  #moneytarget.met { color: #80e860; }
   #timer { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); text-align: center; }
   #timerval { font-size: 30px; font-family: Impact, 'Arial Black', sans-serif; line-height: 1; }
   #timer.low #timerval { color: #ff5040; animation: blink 0.5s infinite alternate; }
@@ -102,11 +106,25 @@ const CSS = `
   .diffbtn.selected b { color: #ffd860; }
   .screen button.secondary { background: linear-gradient(#8a8880, #4a4840); font-size: 20px; padding: 10px 28px; }
   .screen button.danger { background: linear-gradient(#e87050, #a83820); font-size: 20px; padding: 10px 28px; }
+  .screen button.small { font-size: 15px; padding: 8px 20px; }
+  .screen button.link { background: none; border: none; color: #d8c8a0; text-decoration: underline;
+    font-family: Verdana, sans-serif; font-size: 13px; padding: 4px; letter-spacing: 0; }
+  .screen button.link:hover { color: #ffd860; }
+  #tutcard { max-width: 480px; min-height: 150px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 10px; }
+  #tutcard .step { font-size: 12px; letter-spacing: 2px; color: #d8c8a0; }
+  #tutdots { display: flex; gap: 6px; }
+  #tutdots span { width: 8px; height: 8px; border-radius: 50%; background: rgba(216,200,160,0.3); }
+  #tutdots span.on { background: #ffd860; }
+  #shiftinfo { font-size: 15px; color: #d8c8a0; }
+  #shiftinfo b { color: #ffd860; }
 `;
 
 export class HUD {
   private root: HTMLDivElement;
   private money!: HTMLDivElement;
+  private moneyVal!: HTMLSpanElement;
+  private moneyTarget!: HTMLDivElement;
   private timer!: HTMLDivElement;
   private timerVal!: HTMLDivElement;
   private ticket!: HTMLDivElement;
@@ -128,7 +146,7 @@ export class HUD {
     this.root = document.createElement('div');
     this.root.id = 'hud';
     this.root.innerHTML = `
-      <div id="money" class="panel">€ 0.00</div>
+      <div id="money" class="panel"><span id="moneyval">€ 0.00</span><div id="moneytarget">Target: € 0.00</div></div>
       <div id="timer" class="panel"><div id="timerval">1:30</div><div id="pausehint">ESC ⏸ pause</div></div>
       <div id="ticket" class="panel">
         <div class="tbl">Table –</div>
@@ -145,6 +163,8 @@ export class HUD {
     `;
     document.body.appendChild(this.root);
     this.money = this.root.querySelector('#money')!;
+    this.moneyVal = this.root.querySelector('#moneyval')!;
+    this.moneyTarget = this.root.querySelector('#moneytarget')!;
     this.timer = this.root.querySelector('#timer')!;
     this.timerVal = this.root.querySelector('#timerval')!;
     this.ticket = this.root.querySelector('#ticket')!;
@@ -172,9 +192,12 @@ export class HUD {
   }
 
   update(s: HudState, playerX: number, playerZ: number, playerHeading: number) {
-    this.money.textContent =
+    this.moneyVal.textContent =
       s.money < 0 ? `−€ ${Math.abs(s.money).toFixed(2)} DEBT` : `€ ${s.money.toFixed(2)}`;
     this.money.classList.toggle('debt', s.money < 0);
+    const met = s.money >= s.target;
+    this.moneyTarget.textContent = met ? `Target € ${s.target.toFixed(2)} ✓` : `Target: € ${s.target.toFixed(2)}`;
+    this.moneyTarget.classList.toggle('met', met);
     const m = Math.floor(s.timeLeft / 60);
     const sec = Math.floor(s.timeLeft % 60);
     this.timerVal.textContent = `${m}:${sec.toString().padStart(2, '0')}`;
@@ -306,7 +329,7 @@ export class HUD {
     this.screenEl = null;
   }
 
-  showMenu(onStart: (level: number) => void) {
+  showMenu(shift: { number: number; target: number }, onStart: (level: number) => void, onHowToPlay: () => void) {
     this.clearScreen();
     const el = document.createElement('div');
     el.className = 'screen';
@@ -327,8 +350,10 @@ export class HUD {
       <b>1–8</b> at the bar — load mugs &nbsp;•&nbsp; <b>ESC</b> — pause</p>
       <p>Deliver fast for tips. Spill too much and the table refuses the round —
       and every spilled Maß comes out of your pay.</p>
+      <div id="shiftinfo">Shift <b>${shift.number}</b> — earn at least <b>€ ${shift.target.toFixed(2)}</b> to pass</div>
       <div id="difficulty">${diffButtons}</div>
       <button id="startbtn">START SHIFT</button>
+      <button id="howtobtn" class="link">How to play</button>
     `;
     document.body.appendChild(el);
     this.screenEl = el;
@@ -345,6 +370,75 @@ export class HUD {
       this.clearScreen();
       onStart(selected);
     });
+    el.querySelector('#howtobtn')!.addEventListener('click', () => onHowToPlay());
+  }
+
+  private static readonly TUTORIAL_STEPS: { title: string; body: string }[] = [
+    {
+      title: 'Welcome to PROST!',
+      body: 'You\'re running beer service in a packed Oktoberfest tent. Carry Maß beers from the bar to the numbered tables before the shift clock runs out.',
+    },
+    {
+      title: 'Loading up',
+      body: 'Walk to the <b>BAR</b> counter and press <b>1–8</b> to grab that many mugs. Grabbing a full tray takes a moment, so choose wisely — you can\'t move while loading.',
+    },
+    {
+      title: 'Keep it level',
+      body: 'While carrying, the tray drifts off balance on its own. Move the <b>mouse</b> to steer the amber bubble back toward the crosshair. Let it drift too far and a mug spills — and <b>you pay to replace it</b>.',
+    },
+    {
+      title: 'Deliver the full order',
+      body: 'Bring at least as many mugs as the table\'s ticket asks for, or she won\'t take a short order — you\'ll have to walk back for more. Fast, full deliveries earn bigger tips.',
+    },
+    {
+      title: 'Hit your target',
+      body: 'Each shift has a money target shown under your total. Miss it and you\'ll repeat that shift; pass it and the next one pays more — but gets tougher.',
+    },
+  ];
+
+  showTutorial(onDone: () => void) {
+    this.clearScreen();
+    const el = document.createElement('div');
+    el.className = 'screen';
+    let step = 0;
+    const steps = HUD.TUTORIAL_STEPS;
+    const render = () => {
+      const s = steps[step];
+      const dots = steps.map((_, i) => `<span class="${i === step ? 'on' : ''}"></span>`).join('');
+      el.innerHTML = `
+        <div id="tutcard">
+          <div class="step">STEP ${step + 1} / ${steps.length}</div>
+          <h2 style="font-size:28px;">${s.title}</h2>
+          <p>${s.body}</p>
+          <div id="tutdots">${dots}</div>
+        </div>
+        <div class="row">
+          ${step > 0 ? '<button id="tutprev" class="secondary small">BACK</button>' : ''}
+          <button id="tutnext">${step === steps.length - 1 ? "LET'S GO" : 'NEXT'}</button>
+        </div>
+        <button id="tutskip" class="link">Skip</button>
+      `;
+      el.querySelector('#tutnext')!.addEventListener('click', () => {
+        if (step === steps.length - 1) {
+          this.clearScreen();
+          onDone();
+        } else {
+          step++;
+          render();
+        }
+      });
+      el.querySelector('#tutprev')?.addEventListener('click', () => {
+        step--;
+        render();
+      });
+      el.querySelector('#tutskip')!.addEventListener('click', () => {
+        this.clearScreen();
+        onDone();
+      });
+    };
+    render();
+    document.body.appendChild(el);
+    this.screenEl = el;
   }
 
   showPause(state: { money: number; timeLeft: number }, onResume: () => void, onEndShift: () => void, onQuit: () => void) {
@@ -380,11 +474,20 @@ export class HUD {
     });
   }
 
-  showResults(stats: RoundStats, onRestart: () => void) {
+  showResults(
+    stats: RoundStats,
+    progress: { target: number; passed: boolean; shiftNumber: number; nextTarget: number },
+    onRestart: () => void,
+  ) {
     this.clearScreen();
     const el = document.createElement('div');
     el.className = 'screen';
     const inDebt = stats.earned < 0;
+    const passLine = progress.passed
+      ? `<p style="color:#80e860"><b>TARGET MET!</b> Shift ${progress.shiftNumber} cleared —
+         shift ${progress.shiftNumber + 1} needs € ${progress.nextTarget.toFixed(2)}.</p>`
+      : `<p style="color:#ff9040"><b>TARGET MISSED</b> — needed € ${progress.target.toFixed(2)},
+         made € ${Math.max(0, stats.earned).toFixed(2)}. Try shift ${progress.shiftNumber} again.</p>`;
     el.innerHTML = `
       <h2>${inDebt ? 'SHIFT OVER — YOU OWE THE TENT!' : 'SHIFT OVER!'}</h2>
       <h1 style="${inDebt ? 'color:#ff5040' : ''}">${inDebt ? '−' : ''}€ ${Math.abs(stats.earned).toFixed(2)}</h1>
@@ -394,8 +497,9 @@ export class HUD {
         <tr><td>Spilled beer bill</td><td>−€ ${stats.spillLosses.toFixed(2)}</td></tr>
         <tr><td>Best tip</td><td>€ ${stats.bestTip.toFixed(2)}</td></tr>
       </table>
+      ${passLine}
       ${inDebt ? '<p style="color:#ff8070">The Wirt is not amused. Work it off next shift.</p>' : ''}
-      <button id="againbtn">ANOTHER SHIFT</button>
+      <button id="againbtn">${progress.passed ? 'NEXT SHIFT' : 'RETRY SHIFT'}</button>
     `;
     document.body.appendChild(el);
     this.screenEl = el;

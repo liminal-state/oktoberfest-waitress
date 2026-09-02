@@ -7,7 +7,7 @@ export const CONFIG = {
 
   player: {
     walkSpeed: 4.2,          // m/s at 0 mugs
-    speedPerMugPenalty: 0.14, // m/s lost per carried mug
+    speedPerMugPenalty: 0.24, // m/s lost per carried mug — a full tray (8) is noticeably slower
     turnLerp: 10,            // how fast the body turns toward move direction
     radius: 0.35,            // collision radius
   },
@@ -17,7 +17,6 @@ export const CONFIG = {
     height: 3.0,
     lookAtHeight: 1.2,
     lerp: 5,
-    minDistance: 0.05,      // defensive epsilon only — see updateCamera()
     collisionRadius: 0.3,   // margin kept between the camera and scenery;
                              // must stay below player.radius (0.35) or the
                              // spring-arm clamp can flip to the wrong side
@@ -30,7 +29,7 @@ export const CONFIG = {
     // The bubble drifts slowly; moving the mouse steers it the same
     // direction, so you nudge it back toward the bullseye.
     driftBase: 0.035,          // random drift per second at 1 mug, standing still
-    driftPerMug: 0.030,        // extra drift per additional mug
+    driftPerMug: 0.048,        // extra drift per additional mug — a full tray is much harder to hold level
     driftSpeedFactor: 0.14,    // extra drift scaled by walk speed fraction
     turnImpulse: 0.07,         // tilt kick from sharp turning (per rad/s, scaled)
     accelImpulse: 0.03,        // tilt kick from starting/stopping
@@ -82,5 +81,10 @@ export const CONFIG = {
       { name: 'Zünftig', subtitle: 'Medium', driftMult: 1.2, mouseGainMult: 1.05 },
       { name: 'Wahnsinn', subtitle: 'Hard — twitchy tray', driftMult: 2.3, mouseGainMult: 1.7 },
     ] as { name: string; subtitle: string; driftMult: number; mouseGainMult: number }[],
+  },
+
+  progression: {
+    baseTarget: 35,       // € needed to pass shift 1
+    targetIncrement: 18,  // € more required each shift after a pass — gets harder over time
   },
 };

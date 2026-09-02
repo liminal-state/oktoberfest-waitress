@@ -52,6 +52,12 @@ const audio = new AudioSys();
 
 let state: 'menu' | 'playing' | 'paused' | 'results' = 'menu';
 
+// --- shift progression: each pass raises next shift's money target ---
+let shiftNumber = 1;
+function targetFor(shift: number) {
+  return CONFIG.progression.baseTarget + (shift - 1) * CONFIG.progression.targetIncrement;
+}
+
 guests.onBumpLine = (line) => {
   if (state === 'playing') hud.toast(line, 'neutral');
 };
@@ -102,7 +108,15 @@ function endRound() {
   hud.setVisible(false);
   hud.showClickToResume(false);
   if (document.pointerLockElement) document.exitPointerLock();
-  hud.showResults(round.stats, () => hud.showMenu(startRound));
+  const target = targetFor(shiftNumber);
+  const passed = round.money >= target;
+  const clearedShift = shiftNumber;
+  if (passed) shiftNumber++;
+  hud.showResults(
+    round.stats,
+    { target, passed, shiftNumber: clearedShift, nextTarget: targetFor(shiftNumber) },
+    () => hud.showMenu({ number: shiftNumber, target: targetFor(shiftNumber) }, startRound, showTutorial),
+  );
 }
 
 function pauseGame() {
@@ -125,7 +139,18 @@ function quitToMenu() {
   state = 'menu';
   hud.setVisible(false);
   audio.pause();
-  hud.showMenu(startRound);
+  hud.showMenu({ number: shiftNumber, target: targetFor(shiftNumber) }, startRound, showTutorial);
+}
+
+function showTutorial() {
+  hud.showTutorial(() => {
+    try {
+      localStorage.setItem('prost_seen_tutorial', '1');
+    } catch {
+      /* private browsing or storage disabled — just skip persisting it */
+    }
+    hud.showMenu({ number: shiftNumber, target: targetFor(shiftNumber) }, startRound, showTutorial);
+  });
 }
 
 window.addEventListener('keydown', (e) => {
@@ -134,7 +159,17 @@ window.addEventListener('keydown', (e) => {
   else if (state === 'paused') resumeGame();
 });
 
-hud.showMenu(startRound);
+let seenTutorial = false;
+try {
+  seenTutorial = localStorage.getItem('prost_seen_tutorial') === '1';
+} catch {
+  /* private browsing or storage disabled — just show the tutorial every time */
+}
+if (seenTutorial) {
+  hud.showMenu({ number: shiftNumber, target: targetFor(shiftNumber) }, startRound, showTutorial);
+} else {
+  showTutorial();
+}
 
 // --- delivery handling ---
 let lastInsufficientTable = -1;
@@ -259,6 +294,7 @@ function step(dt: number) {
     hud.update(
       {
         money: round.money,
+        target: targetFor(shiftNumber),
         timeLeft: round.timeLeft,
         order: orders.current,
         tipFraction: orders.tipFraction(),
