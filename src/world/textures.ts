@@ -351,10 +351,21 @@ export function bodiceTexture(): THREE.CanvasTexture {
   // fabric weave
   ctx.fillStyle = 'rgba(0,0,0,0.06)';
   for (let y = 0; y < 128; y += 3) ctx.fillRect(0, y, 128, 1);
-  // gold trim top and bottom
+  // colorful floral embroidery band along the neckline, gold trim at the waist
   ctx.fillStyle = '#d8a838';
-  ctx.fillRect(0, 0, 128, 5);
   ctx.fillRect(0, 123, 128, 5);
+  ctx.fillRect(0, 0, 128, 3);
+  const trimColors = ['#c0392b', '#2e7d32', '#d8a838', '#8a3a6a'];
+  for (let x = 3; x < 128; x += 7) {
+    ctx.fillStyle = trimColors[Math.floor(Math.random() * trimColors.length)];
+    ctx.beginPath();
+    ctx.arc(x, 6, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#3a6a2e';
+    ctx.beginPath();
+    ctx.ellipse(x + 3.5, 6, 1, 2, 0.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
   // front lacing: crisscross gold cord between eyelets (center of texture = front)
   ctx.strokeStyle = '#e8c050';
   ctx.lineWidth = 2.5;
@@ -379,41 +390,35 @@ export function bodiceTexture(): THREE.CanvasTexture {
 }
 
 export function apronClothTexture(): THREE.CanvasTexture {
-  // cream apron with lace edge and tiny embroidered flowers
+  // red/white gingham dirndl apron with a ruffled white hem band
   const [c, ctx] = makeCanvas(128);
-  ctx.fillStyle = '#efe8d2';
+  ctx.fillStyle = '#f5f0e2';
   ctx.fillRect(0, 0, 128, 128);
-  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.fillStyle = 'rgba(196,48,42,0.72)';
+  for (let i = 0; i < 8; i++) {
+    ctx.fillRect(i * 16, 0, 8, 128);
+    ctx.fillRect(0, i * 16, 128, 8);
+  }
+  // woven thread texture
+  ctx.fillStyle = 'rgba(255,255,255,0.10)';
   for (let y = 0; y < 128; y += 2) ctx.fillRect(0, y, 128, 1);
-  // lace holes along bottom
-  ctx.fillStyle = 'rgba(120,100,70,0.35)';
-  for (let x = 6; x < 128; x += 12) {
-    ctx.beginPath();
-    ctx.arc(x, 118, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.strokeStyle = 'rgba(120,100,70,0.4)';
-  ctx.lineWidth = 1.5;
+  ctx.fillStyle = 'rgba(0,0,0,0.05)';
+  for (let x = 0; x < 128; x += 2) ctx.fillRect(x, 0, 1, 128);
+  // ruffled white hem band with a scalloped lace edge
+  ctx.fillStyle = '#faf7ef';
+  ctx.fillRect(0, 106, 128, 22);
+  ctx.fillStyle = 'rgba(170,70,60,0.18)';
   ctx.beginPath();
-  ctx.moveTo(0, 110);
-  ctx.lineTo(128, 110);
-  ctx.stroke();
-  // scattered embroidered flowers
-  for (let i = 0; i < 6; i++) {
-    const fx = 12 + Math.random() * 104, fy = 15 + Math.random() * 80;
-    ctx.fillStyle = 'rgba(170,60,70,0.55)';
-    for (let p = 0; p < 5; p++) {
-      const a = (p / 5) * Math.PI * 2;
-      ctx.beginPath();
-      ctx.arc(fx + Math.cos(a) * 3, fy + Math.sin(a) * 3, 1.6, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.fillStyle = 'rgba(220,170,50,0.8)';
+  for (let x = -4; x <= 128; x += 8) ctx.arc(x, 106, 4, 0, Math.PI, false);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(120,100,70,0.35)';
+  for (let x = 6; x < 128; x += 10) {
     ctx.beginPath();
-    ctx.arc(fx, fy, 1.5, 0, Math.PI * 2);
+    ctx.arc(x, 121, 2, 0, Math.PI * 2);
     ctx.fill();
   }
-  return finish(c);
+  noiseSpeckle(ctx, 128, 60, 0.05);
+  return finish(c, 2);
 }
 
 export function skirtClothTexture(): THREE.CanvasTexture {

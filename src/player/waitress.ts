@@ -66,12 +66,15 @@ export class Waitress {
     skirt.position.y = 0.5;
     this.body.add(skirt);
 
-    // apron over the front of the skirt
+    // apron over the front of the skirt — must be a hair wider than the skirt's
+    // own radius at every height or it renders entirely hidden inside the skirt
+    // fabric; a plain cone tapers to a point and undershoots the skirt, so this
+    // uses a top/bottom-radius cylinder shaped to the skirt's profile instead
     const apron = new THREE.Mesh(
-      new THREE.ConeGeometry(0.4, 0.5, 14, 1, true, -0.55, 1.1),
+      new THREE.CylinderGeometry(0.21, 0.46, 0.49, 14, 1, true, -0.55, 1.1),
       apronMat,
     );
-    apron.position.y = 0.79;
+    apron.position.y = 0.805;
     this.body.add(apron);
     // apron waistband + side bow
     const band = new THREE.Mesh(new THREE.CylinderGeometry(0.185, 0.185, 0.05, 14), apronMat);
@@ -87,16 +90,16 @@ export class Waitress {
       this.body.add(loop);
     }
 
-    // --- torso: blouse, bust hint, laced bodice ---
-    const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.24, 0.34, 14), blouseMat);
+    // --- torso: blouse, bust, laced bodice ---
+    const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.25, 0.34, 14), blouseMat);
     torso.position.y = 1.32;
     this.body.add(torso);
-    const bust = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 9), blouseMat);
-    bust.scale.set(1.3, 0.75, 0.75);
-    bust.position.set(0, 1.37, 0.09);
+    const bust = new THREE.Mesh(new THREE.SphereGeometry(0.17, 14, 10), blouseMat);
+    bust.scale.set(1.35, 0.92, 0.88);
+    bust.position.set(0, 1.38, 0.1);
     this.body.add(bust);
     // bodice wraps OUTSIDE the torso so the lacing shows
-    const bodice = new THREE.Mesh(new THREE.CylinderGeometry(0.215, 0.265, 0.34, 14, 1, true), bodiceMat);
+    const bodice = new THREE.Mesh(new THREE.CylinderGeometry(0.235, 0.285, 0.34, 14, 1, true), bodiceMat);
     bodice.position.y = 1.24;
     bodice.rotation.y = Math.PI / 2; // lacing (texture center) faces +z
     this.body.add(bodice);
@@ -107,11 +110,11 @@ export class Waitress {
     const foreGeo = new THREE.CylinderGeometry(0.04, 0.036, 0.28, 8);
     foreGeo.translate(0, -0.14, 0);
     for (const s of [-1, 1]) {
-      const sleeve = new THREE.Mesh(new THREE.SphereGeometry(0.095, 12, 9), blouseMat);
-      sleeve.position.set(s * 0.24, 1.45, 0.02);
+      const sleeve = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 9), blouseMat);
+      sleeve.position.set(s * 0.25, 1.45, 0.02);
       this.body.add(sleeve);
       const shoulder = new THREE.Group();
-      shoulder.position.set(s * 0.25, 1.44, 0.02);
+      shoulder.position.set(s * 0.26, 1.44, 0.02);
       shoulder.rotation.x = -0.5;
       shoulder.rotation.z = s * -0.18;
       const upper = new THREE.Mesh(upperGeo, skinMat);
