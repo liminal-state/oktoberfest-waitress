@@ -21,6 +21,8 @@ export const CONFIG = {
                              // must stay below player.radius (0.35) or the
                              // spring-arm clamp can flip to the wrong side
                              // of the player when she's pressed against a wall
+    lookSensitivity: 0.0028, // camera yaw (rad) per pixel of mouse movement — hands-free only
+    followLerp: 4,           // how fast the camera settles back behind her heading while carrying
   },
 
   tray: {

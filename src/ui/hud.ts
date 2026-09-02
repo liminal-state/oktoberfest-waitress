@@ -384,7 +384,7 @@ export class HUD {
     },
     {
       title: 'Keep it level',
-      body: 'While carrying, the tray drifts off balance on its own. Move the <b>mouse</b> to steer the amber bubble back toward the crosshair. Let it drift too far and a mug spills — and <b>you pay to replace it</b>.',
+      body: 'With empty hands, the <b>mouse</b> just looks around. The moment you\'re carrying beer, it switches to steering the tray\'s amber bubble back toward the crosshair. Let it drift too far and a mug spills — and <b>you pay to replace it</b>.',
     },
     {
       title: 'Deliver the full order',
@@ -519,7 +519,8 @@ export class HUD {
         'position:fixed;top:74px;left:50%;transform:translateX(-50%);' +
         'font-family:"Trebuchet MS",Verdana,sans-serif;font-size:15px;color:#f5f0e0;' +
         'text-shadow:2px 2px 0 rgba(0,0,0,0.7);pointer-events:none;text-align:center;';
-      el.innerHTML = '🖱️ Move the mouse to keep the tray level — <b>click once</b> to capture the cursor';
+      el.innerHTML =
+        '🖱️ Mouse looks around — and keeps the tray level once you\'re carrying — <b>click once</b> to capture the cursor';
       document.body.appendChild(el);
     } else if (!show && el) {
       el.remove();

@@ -232,6 +232,12 @@ function step(dt: number) {
     const guestRes = guests.update(dt, controller.pos);
     if (guestRes.toastJustStarted) audio.cheer();
 
+    // Hands empty: the mouse is free to orbit the camera, like a normal
+    // third-person look. Hands full: the mouse is needed for tray balance,
+    // so the camera instead settles in behind whatever way she's walking.
+    const handsFree = tray.mugs === 0;
+    controller.updateLook(dt, mouse.dx, handsFree);
+
     if (loading) {
       // frozen at the counter while she grabs the mugs
       controller.speed01 = 0;
@@ -249,8 +255,8 @@ function step(dt: number) {
       speed01: controller.speed01,
       turnRate: controller.turnRate,
       accel: controller.accelMag,
-      mouseDx: mouse.dx,
-      mouseDy: mouse.dy,
+      mouseDx: handsFree ? 0 : mouse.dx,
+      mouseDy: handsFree ? 0 : mouse.dy,
       jostle: guestRes.jostle,
       driftMult: round.driftMult,
       mouseGainMult: round.mouseGainMult,

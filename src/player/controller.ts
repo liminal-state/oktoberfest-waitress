@@ -116,14 +116,39 @@ function cameraSpringArm(
   return new THREE.Vector2(playerPos.x + dirX * clearDist, playerPos.z + dirZ * clearDist);
 }
 
+function wrapAngle(a: number): number {
+  while (a > Math.PI) a -= Math.PI * 2;
+  while (a < -Math.PI) a += Math.PI * 2;
+  return a;
+}
+
 export class PlayerController {
   pos = new THREE.Vector3(2.5, 0, 14); // start near the bar, off the pole line
   heading = 0;                       // facing south (+z) toward the bar
+  // Independent of heading: where the camera itself is looking. Free-look
+  // (mouse-driven) with hands empty; auto-settles in behind her heading
+  // while carrying, since the mouse is busy balancing the tray then.
+  // PI makes the default (before any mouse input) match heading=0 — i.e.
+  // camera behind her, facing the bar, same as her spawn facing.
+  cameraYaw = Math.PI;
   private vel = new THREE.Vector2();
   // Exposed each frame for the tray physics:
   speed01 = 0;
   turnRate = 0;
   accelMag = 0;
+
+  // Called once per frame before update(): hands-free lets the mouse orbit
+  // the camera directly; hands-full lets it drift back to trail her heading.
+  updateLook(dt: number, mouseDx: number, freeLook: boolean) {
+    const cfg = CONFIG.camera;
+    if (freeLook) {
+      this.cameraYaw -= mouseDx * cfg.lookSensitivity;
+    } else {
+      const target = wrapAngle(Math.PI - this.heading);
+      const diff = wrapAngle(target - this.cameraYaw);
+      this.cameraYaw += diff * Math.min(1, cfg.followLerp * dt);
+    }
+  }
 
   update(
     dt: number,
@@ -135,8 +160,14 @@ export class PlayerController {
   ) {
     const cfg = CONFIG.player;
     const maxSpeed = Math.max(1.4, (cfg.walkSpeed - mugsCarried * cfg.speedPerMugPenalty) * slowFactor);
+    // WASD is relative to wherever the camera is currently looking (not a
+    // fixed world axis), so W always walks into what's on screen regardless
+    // of how the camera's been spun around.
     const move = input.moveVector();
-    const targetVel = move.clone().multiplyScalar(maxSpeed);
+    const cy = Math.cos(this.cameraYaw);
+    const sy = Math.sin(this.cameraYaw);
+    const worldMove = new THREE.Vector2(move.x * cy - move.y * sy, move.x * sy + move.y * cy);
+    const targetVel = worldMove.multiplyScalar(maxSpeed);
 
     const prevVel = this.vel.clone();
     // exponential approach for snappy-but-smooth accel
@@ -171,12 +202,13 @@ export class PlayerController {
 
   updateCamera(camera: THREE.PerspectiveCamera, dt: number, colliders: AABB[], bounds: AABB) {
     const cfg = CONFIG.camera;
-    // Camera trails behind the player relative to her current heading (not a
-    // fixed world direction), so whatever she's walking toward — bar or
-    // tables — is always the thing in view, not whatever's behind her.
-    const fwdX = Math.sin(this.heading);
-    const fwdZ = Math.cos(this.heading);
-    const arm = cameraSpringArm(this.pos, -fwdX, -fwdZ, cfg.distance, colliders, bounds, cfg.collisionRadius);
+    // Camera trails behind wherever cameraYaw is currently looking (mouse-
+    // controlled with hands free, auto-following her heading while she
+    // carries a tray) — not a fixed world direction and not locked to
+    // movement, so whatever's in view is always what she's walking toward.
+    const armDirX = -Math.sin(this.cameraYaw);
+    const armDirZ = Math.cos(this.cameraYaw);
+    const arm = cameraSpringArm(this.pos, armDirX, armDirZ, cfg.distance, colliders, bounds, cfg.collisionRadius);
 
     const target = new THREE.Vector3(arm.x, cfg.height, arm.y);
     const k = 1 - Math.exp(-cfg.lerp * dt);
